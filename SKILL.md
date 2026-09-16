@@ -1,7 +1,7 @@
 ---
 name: link-from-baidu_tencent_zoom
 description: 在 Ubuntu/Linux 服务器上管理百度网盘、腾讯会议、Zoom 分享链接——提取、去重、写入汇总表，获取元数据，转存/下载录像、AI 会议纪要和逐字稿。用自带脚本直连 Chrome 调试端口（CDP），不依赖 Agent 的 browser 工具，也不依赖 macOS。
-version: 2.1.0-linux
+version: 2.2.1-linux
 author: sheng
 license: MIT
 platforms: [linux]
@@ -352,6 +352,8 @@ export HTTPS_PROXY=http://127.0.0.1:7890 NO_PROXY=127.0.0.1,localhost
 python3 "$SKILL_DIR/scripts/download_share_recordings_via_cdp.py" --dry-run 'https://meeting.tencent.com/cw/<code>'
 # 下载视频，同时导出 AI 纪要和逐字稿（可一次传多个链接）
 python3 "$SKILL_DIR/scripts/download_share_recordings_via_cdp.py" --with-minutes 'https://meeting.tencent.com/cw/<code>'
+# 指定账号端口（多账号场景）
+python3 "$SKILL_DIR/scripts/download_share_recordings_via_cdp.py" --cdp-port 9340 --with-minutes 'https://meeting.tencent.com/cw/<code>'
 # 只补导出纪要和逐字稿
 python3 "$SKILL_DIR/scripts/export_share_minutes_via_cdp.py" 'https://meeting.tencent.com/cw/<code>'
 # 校验
