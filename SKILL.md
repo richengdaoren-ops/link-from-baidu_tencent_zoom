@@ -533,6 +533,7 @@ ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries strea
 | `tencent_minutes.py` | 纪要/逐字稿的分页、合并和渲染 | 新增 |
 | `verify_meeting_dir.py` | 下载后校验 | 新增 |
 | `linux_env.py` | 路径、端口、UA 集中配置 | 新增 |
+| `account_manager.py` | 多账号登录态管理（add/list/check/login/use/remove） | 新增 |
 | `download_my_recordings.py` | C1 我的录制批量下载（逐字稿改为翻页拉全） | 改为原生 CDP |
 | `download_public_share_recording.py` | C2 公开分享（新增 `--no-password`） | 路径/UA 已改 |
 | `download_share_recordings_from_har.py` | C4 HAR 流程 | 路径/UA 已改 |
@@ -559,7 +560,45 @@ ffprobe -v error -show_entries format=duration,size,bit_rate -show_entries strea
 
 ## Multi-Account Pattern
 
-每个账号用一个独立的 profile 和端口，例如 `start_chrome.sh --port 9340 --profile ~/.cache/link-dl/acc2-profile`；脚本运行时加 `--cdp-port 9340`。每个账号分别跑完整流程，最后合并目录。
+每个账号 = 独立 Chrome profile + 独立 CDP 端口。用 `account_manager.py` 管理：
+
+```bash
+# 创建账号（自动分配端口，如 9340）
+python3 scripts/account_manager.py add 卡卡西 --site tencent --notes "卡卡西微信号"
+
+# 列出所有账号及登录状态
+python3 scripts/account_manager.py list
+
+# 启动 Chrome 并扫码登录（首次）
+python3 scripts/account_manager.py login 卡卡西
+
+# 切换到指定账号（写入环境变量）
+python3 scripts/account_manager.py use 卡卡西
+source ~/.cache/link-dl/current_account.env
+
+# 检查登录状态
+python3 scripts/account_manager.py check 卡卡西
+
+# 移除账号（--purge 同时删除 profile）
+python3 scripts/account_manager.py remove 卡卡西
+```
+
+**端口分配规则**：9340 起自动递增。每个账号的 profile 保存在 `~/.cache/link-dl/<账号名>-profile/`。
+
+**登录态复用**：扫码一次后，只要 profile 目录不删、腾讯会议 cookie 不过期，就无需再扫码。`account_manager.py check` 可检测当前账号是否仍有效。
+
+**批量下载时切换账号**：
+```bash
+# 账号 A 下载
+python3 scripts/account_manager.py use 账号A
+source ~/.cache/link-dl/current_account.env
+python3 scripts/download_share_recordings_via_cdp.py --with-minutes '链接1' '链接2'
+
+# 账号 B 下载（换端口，Chrome 实例独立）
+python3 scripts/account_manager.py use 账号B
+source ~/.cache/link-dl/current_account.env
+python3 scripts/download_share_recordings_via_cdp.py --with-minutes '链接3' '链接4'
+```
 
 ## Pitfalls
 
