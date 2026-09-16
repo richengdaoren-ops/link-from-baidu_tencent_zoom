@@ -623,6 +623,9 @@ python3 scripts/download_share_recordings_via_cdp.py --with-minutes '链接3' '�
 - 百度链接可能被微信/QQ 截断或加了跳转，先识别出真实链接
 - `/crm/` 和 `/cw/` 是同一个链接的两种形式（crm 会 302 跳转到 cw）
 - 转存目标以网盘里实际的文件夹名为准，不要写死
+- **`account_manager.py login` 首次运行报找不到 Chrome**：可能原因是非标准路径。检查 `CHROME_BIN` 环境变量或手动设置 `which google-chrome-stable` 的路径到 `start_chrome.sh`。`account_manager.py login` 现在会自动探测已有 Chrome 实例（包括 Agent browser 工具启动的），并绑定端口而非启动新实例
+- **多个工具启动的 Chrome profile 不互通**：Agent browser 工具使用 `/home/ubuntu/.agent-browser/browsers/chrome-...` 和临时 profile `/tmp/tencent-chrome`；`start_chrome.sh` 使用 `~/.cache/link-dl/<name>-profile/`。两个实例不共享 cookie 或登录态，切换下载脚本时必须确保使用正确的端口和 profile
+- **`login_via_qr.py --check` 是最快的登录态验证**：在启动任何下载前先检查，避免加载页面后发现未登录又重来
 - 签名 URL 过期后，重新 resolve 或重跑脚本
 
 ## 与 macOS 版的差异

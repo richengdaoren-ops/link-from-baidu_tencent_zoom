@@ -145,13 +145,79 @@ def cmd_check(args):
 
 def cmd_login(args):
     acc = get_account(args.name)
-    print(f"启动账号 '{args.name}' 的 Chrome（端口 {acc['port']}）...")
-    os.system(f"bash {Path(__file__).parent}/start_chrome.sh --port {acc['port']} --profile {acc['profile']}")
-    time.sleep(2)
-    print(f"请在打开的页面中扫码登录...")
-    os.system(f"python3 {Path(__file__).parent}/login_via_qr.py {acc['site']} --port {acc['port']}")
-    acc["last_login_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    save_accounts(load_accounts() | {args.name: acc})
+
+    # 检查是否已有 Chrome 在运行
+    import urllib.request
+    running = None
+    for port_candidate in [acc["port"], 9333, 9334]:
+        try:
+            info = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port_candidate}/json/version", timeout=2).read())
+            running = {"port": port_candidate, "browser": info.get("Browser", "?")}
+            break
+        except Exception:
+            continue
+
+    if running:
+        port = running["port"]
+        print(f"检测到端口 {port} 已有 Chrome 运行（{running['browser']}）")
+
+        # 检查该端口是否已有账号绑定
+        accounts = load_accounts()
+        existing_account = None
+        for n, a in accounts.items():
+            if a["port"] == port:
+                existing_account = n
+                break
+
+        if existing_account:
+            print(f"此端口已绑定账号 '{existing_account}'。重新绑定到 '{args.name}' 会抢占端口。")
+            acc["port"] = port
+            save_accounts(load_accounts() | {args.name: acc})
+            print(f"已重新绑定账号 '{args.name}' 到端口 {port}（原账号 '{existing_account}' 的端口将被占用）")
+            port = port
+        else:
+            print(f"端口 {port} 未绑定任何账号，正在绑定到 '{args.name}'...")
+            acc["port"] = port
+            aw = load_accounts()
+            aw[args.name] = acc
+            save_accounts(aw)
+
+        # 检查该端口的登录态
+        b = cdp_client.Browser(port=port)
+        from login_via_qr import SITES
+        cfg = SITES.get(args.site, SITES["tencent"])
+        tab = b.find(cfg["match"])
+        if not tab:
+            tab = b.open("about:blank")
+        s = b.session(tab)
+        if logged_in(s, cfg):
+            print(f"账号 '{args.name}' 在该端口已登录")
+            acc["last_login_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            save_accounts(load_accounts() | {args.name: acc})
+            return
+        else:
+            print(f"该端口 Chrome 已运行但未登录，正在打开登录页...")
+            s.navigate(cfg["login_url"])
+            time.sleep(3)
+    else:
+        print(f"启动账号 '{args.name}' 的 Chrome（端口 {acc['port']}）...")
+        rc = os.system(f"bash {Path(__file__).parent}/start_chrome.sh --port {acc['port']} --profile {acc['profile']} >/dev/null 2>&1")
+        if rc != 0:
+            print(f"Chrome 启动失败（退出码 {rc}）。请先安装 Chrome。")
+            sys.exit(1)
+        time.sleep(3)
+
+    # 扫码登录
+    rc = os.system(f"python3 {Path(__file__).parent}/login_via_qr.py {acc['site']} --port {acc['port']} 2>&1")
+    if rc == 0:
+        acc = get_account(args.name)  # re-read to get latest data
+        acc["last_login_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        aw = load_accounts()
+        aw[args.name] = acc
+        save_accounts(aw)
+        print(f"登录成功，账号 '{args.name}' 已就绪")
+    else:
+        print(f"登录失败或超时，可重跑 python3 scripts/account_manager.py login {args.name}")
 
 
 def cmd_use(args):
